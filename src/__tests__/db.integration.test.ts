@@ -1,70 +1,81 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
 import * as schema from "../db/schema.js";
 
 /**
- * Integration tests for the database layer.
- * Uses an in-memory SQLite database for isolation.
+ * Integration tests for the database layer against PostgreSQL.
+ *
+ * Requires TEST_DATABASE_URL env var. Skipped if not set.
+ * Use Render PostgreSQL URL or a local Postgres instance for testing.
  */
-describe("Database Integration", () => {
+
+const TEST_DB_URL = process.env.TEST_DATABASE_URL;
+
+// Skip all DB integration tests if no TEST_DATABASE_URL is configured
+const dbSuite = TEST_DB_URL ? describe : describe.skip;
+
+dbSuite("Database Integration", () => {
   let db: ReturnType<typeof drizzle<typeof schema>>;
+  let pgClient: postgres.Sql;
 
-  beforeAll(() => {
-    // Create in-memory SQLite database
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("journal_mode = WAL");
-    sqlite.pragma("foreign_keys = ON");
-    db = drizzle(sqlite, { schema });
+  beforeAll(async () => {
+    pgClient = postgres(TEST_DB_URL!, { prepare: false });
+    db = drizzle(pgClient, { schema });
 
-    // Create tables from schema
-    const tables = [
-      `CREATE TABLE IF NOT EXISTS trackings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+    // Push schema — create all tables
+    const ddl = await import("fs/promises");
+    // Use Drizzle Kit push equivalent: create tables via schema push
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS trackings (
+        id SERIAL PRIMARY KEY,
         tracking_number TEXT NOT NULL,
         carrier TEXT NOT NULL DEFAULT '',
         email TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'delivered', 'error')),
         last_checked_at TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      `CREATE TABLE IF NOT EXISTS tracking_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_tracking_email ON trackings(tracking_number, email);
+
+      CREATE TABLE IF NOT EXISTS tracking_events (
+        id SERIAL PRIMARY KEY,
         tracking_id INTEGER NOT NULL REFERENCES trackings(id) ON DELETE CASCADE,
         event_location TEXT,
         event_description TEXT,
         event_date TEXT,
         translated_description TEXT,
         event_hash TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      `CREATE TABLE IF NOT EXISTS sent_emails (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_tracking_event_hash ON tracking_events(tracking_id, event_hash);
+
+      CREATE TABLE IF NOT EXISTS sent_emails (
+        id SERIAL PRIMARY KEY,
         tracking_id INTEGER NOT NULL REFERENCES trackings(id) ON DELETE CASCADE,
         event_ids TEXT NOT NULL,
-        sent_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      `CREATE TABLE IF NOT EXISTS sync_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sent_at TEXT NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS sync_log (
+        id SERIAL PRIMARY KEY,
         tracking_id INTEGER NOT NULL REFERENCES trackings(id) ON DELETE CASCADE,
-        checked_at TEXT NOT NULL DEFAULT (datetime('now')),
-        success INTEGER NOT NULL DEFAULT 1,
+        checked_at TEXT NOT NULL DEFAULT now(),
+        success BOOLEAN NOT NULL DEFAULT true,
         error_message TEXT,
         events_found INTEGER NOT NULL DEFAULT 0
-      )`,
-      `CREATE UNIQUE INDEX IF NOT EXISTS idx_tracking_email ON trackings(tracking_number, email)`,
-      `CREATE UNIQUE INDEX IF NOT EXISTS idx_tracking_event_hash ON tracking_events(tracking_id, event_hash)`,
-    ];
-
-    for (const sqlStmt of tables) {
-      db.run(sql.raw(sqlStmt));
-    }
+      );
+    `);
   });
 
   beforeEach(async () => {
     // Clean all tables between tests
-    db.delete(schema.trackings).execute();
+    await db.delete(schema.trackings).execute();
+  });
+
+  afterAll(async () => {
+    await pgClient.end();
   });
 
   describe("trackings CRUD", () => {
@@ -98,7 +109,7 @@ describe("Database Integration", () => {
           trackingNumber: "1Z999AA10123456784",
           email: "user@example.com",
           status: "active",
-        })
+        }),
       ).rejects.toThrow();
     });
 
@@ -114,7 +125,7 @@ describe("Database Integration", () => {
           trackingNumber: "1Z999AA10123456784",
           email: "other@example.com",
           status: "active",
-        })
+        }),
       ).resolves.toBeTruthy();
     });
 
@@ -215,7 +226,7 @@ describe("Database Integration", () => {
         db.insert(schema.trackingEvents).values({
           trackingId: tracking.id,
           eventHash: "duplicatehash",
-        })
+        }),
       ).rejects.toThrow();
     });
 

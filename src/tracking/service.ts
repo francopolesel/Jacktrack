@@ -222,8 +222,7 @@ export class TrackingService {
     const existing = await db
       .select({ hash: schema.trackingEvents.eventHash })
       .from(schema.trackingEvents)
-      .where(eq(schema.trackingEvents.trackingId, trackingId))
-      .all();
+      .where(eq(schema.trackingEvents.trackingId, trackingId));
 
     return new Set(existing.map((r) => r.hash));
   }

@@ -253,8 +253,7 @@ describe("TrackingService", () => {
       // Mock existing events query — returns empty (no existing events)
       const existingEventsChain = {
         from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        all: vi.fn().mockResolvedValue([]),
+        where: vi.fn().mockResolvedValue([]),
       };
       mockDb.select.mockReturnValueOnce(existingEventsChain);
 
@@ -320,8 +319,7 @@ describe("TrackingService", () => {
       // No existing events
       const existingEventsChain = {
         from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        all: vi.fn().mockResolvedValue([]),
+        where: vi.fn().mockResolvedValue([]),
       };
       mockDb.select.mockReturnValueOnce(existingEventsChain);
 
@@ -369,8 +367,8 @@ describe("TrackingService", () => {
   describe("detectDelivery", () => {
     it("should mark a tracking as delivered when status is delivered", async () => {
       const trackings = [
-        { id: 1, trackingNumber: "1Z999AA10123456784", email: "user@example.com", status: "active" as const },
-        { id: 2, trackingNumber: "1Z999AA10123456785", email: "other@example.com", status: "active" as const },
+        { id: 1, trackingNumber: "1Z999AA10123456784", carrier: "UPS", email: "user@example.com", status: "active" as const, lastCheckedAt: null, createdAt: "2026-07-12T09:00:00Z" },
+        { id: 2, trackingNumber: "1Z999AA10123456785", carrier: "FedEx", email: "other@example.com", status: "active" as const, lastCheckedAt: null, createdAt: "2026-07-12T09:00:00Z" },
       ];
       const info = new Map<string, TrackingInfo>();
       info.set("1Z999AA10123456784", {
@@ -401,7 +399,7 @@ describe("TrackingService", () => {
 
     it("should return empty array when no trackings are delivered", async () => {
       const trackings = [
-        { id: 1, trackingNumber: "1Z999AA10123456784", email: "user@example.com", status: "active" as const },
+        { id: 1, trackingNumber: "1Z999AA10123456784", carrier: "UPS", email: "user@example.com", status: "active" as const, lastCheckedAt: null, createdAt: "2026-07-12T09:00:00Z" },
       ];
       const info = new Map<string, TrackingInfo>();
       info.set("1Z999AA10123456784", {

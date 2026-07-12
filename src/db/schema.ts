@@ -1,9 +1,10 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { pgTable, serial, text, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-export const trackings = sqliteTable(
+export const trackings = pgTable(
   "trackings",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     trackingNumber: text("tracking_number").notNull(),
     carrier: text("carrier").notNull().default(""),
     email: text("email").notNull(),
@@ -13,20 +14,20 @@ export const trackings = sqliteTable(
     lastCheckedAt: text("last_checked_at"),
     createdAt: text("created_at")
       .notNull()
-      .default("(datetime('now'))"),
+      .default(sql`now()`),
   },
   (table) => ({
     trackingEmailIdx: uniqueIndex("idx_tracking_email").on(
       table.trackingNumber,
-      table.email
+      table.email,
     ),
-  })
+  }),
 );
 
-export const trackingEvents = sqliteTable(
+export const trackingEvents = pgTable(
   "tracking_events",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     trackingId: integer("tracking_id")
       .notNull()
       .references(() => trackings.id, { onDelete: "cascade" }),
@@ -37,36 +38,36 @@ export const trackingEvents = sqliteTable(
     eventHash: text("event_hash").notNull(),
     createdAt: text("created_at")
       .notNull()
-      .default("(datetime('now'))"),
+      .default(sql`now()`),
   },
   (table) => ({
     trackingEventHashIdx: uniqueIndex("idx_tracking_event_hash").on(
       table.trackingId,
-      table.eventHash
+      table.eventHash,
     ),
-  })
+  }),
 );
 
-export const sentEmails = sqliteTable("sent_emails", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const sentEmails = pgTable("sent_emails", {
+  id: serial("id").primaryKey(),
   trackingId: integer("tracking_id")
     .notNull()
     .references(() => trackings.id, { onDelete: "cascade" }),
   eventIds: text("event_ids").notNull(), // JSON array of event IDs
   sentAt: text("sent_at")
     .notNull()
-    .default("(datetime('now'))"),
+    .default(sql`now()`),
 });
 
-export const syncLog = sqliteTable("sync_log", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const syncLog = pgTable("sync_log", {
+  id: serial("id").primaryKey(),
   trackingId: integer("tracking_id")
     .notNull()
     .references(() => trackings.id, { onDelete: "cascade" }),
   checkedAt: text("checked_at")
     .notNull()
-    .default("(datetime('now'))"),
-  success: integer("success", { mode: "boolean" }).notNull().default(true),
+    .default(sql`now()`),
+  success: boolean("success").notNull().default(true),
   errorMessage: text("error_message"),
   eventsFound: integer("events_found").notNull().default(0),
 });
