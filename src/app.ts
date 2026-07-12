@@ -6,6 +6,11 @@ import { createRouter } from "./routes/index.js";
 export function createApp(trackingService: TrackingService): Hono {
   const app = new Hono();
 
+  // Health check for uptime monitoring
+  app.get("/health", (c) => {
+    return c.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // Mount routes
   const router = createRouter(trackingService);
   app.route("/", router);

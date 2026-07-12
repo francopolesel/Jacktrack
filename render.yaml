@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: jacktrack
+    runtime: node
+    repo: https://github.com/francopolesel/Jacktrack.git
+    plan: free
+    region: ohio
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SEVENTEEN_TRACK_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        value: tracking@jacktrack.app
+      - key: POLL_INTERVAL_MS
+        value: "900000"
