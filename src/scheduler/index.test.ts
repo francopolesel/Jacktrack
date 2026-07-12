@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Scheduler } from "./index.js";
 import type { TrackingService } from "../tracking/service.js";
+import type { IEmailClient } from "../email/client.js";
 
 function createMockService(): TrackingService {
   return {
@@ -10,13 +11,21 @@ function createMockService(): TrackingService {
   } as unknown as TrackingService;
 }
 
+function createMockEmailClient(): IEmailClient {
+  return {
+    send: vi.fn().mockResolvedValue({ success: true }),
+  };
+}
+
 describe("Scheduler", () => {
   let service: TrackingService;
+  let emailClient: IEmailClient;
   let scheduler: Scheduler;
 
   beforeEach(() => {
     vi.useFakeTimers();
     service = createMockService();
+    emailClient = createMockEmailClient();
   });
 
   afterEach(() => {
@@ -25,9 +34,9 @@ describe("Scheduler", () => {
   });
 
   describe("start and stop", () => {
-    it("should call checkAll immediately on start and then at the configured interval", () => {
+    it("should call checkAll immediately on start and then at the configured interval", async () => {
       const intervalMs = 60000;
-      scheduler = new Scheduler(service, intervalMs);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", intervalMs);
 
       const checkSpy = vi.spyOn(scheduler as any, "checkAll");
 
@@ -36,15 +45,15 @@ describe("Scheduler", () => {
       // checkAll should have been called immediately on start
       expect(checkSpy).toHaveBeenCalledTimes(1);
 
-      // Advance time by interval
-      vi.advanceTimersByTime(intervalMs);
+      // Advance time by interval (async to handle async checkAll)
+      await vi.advanceTimersByTimeAsync(intervalMs);
 
       // Should have been called again
       expect(checkSpy).toHaveBeenCalledTimes(2);
     });
 
     it("should stop polling when stop() is called", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
 
       const checkSpy = vi.spyOn(scheduler as any, "checkAll");
 
@@ -61,12 +70,12 @@ describe("Scheduler", () => {
     });
 
     it("should not throw if stop is called without start", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       expect(() => scheduler.stop()).not.toThrow();
     });
 
     it("should not throw if start is called multiple times", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       scheduler.start();
       expect(() => scheduler.start()).not.toThrow();
       scheduler.stop();
@@ -75,33 +84,33 @@ describe("Scheduler", () => {
 
   describe("chunkArray", () => {
     it("should split an array into chunks of the specified size", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       const arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       const chunks = (scheduler as any).chunkArray(arr, 3);
       expect(chunks).toEqual([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]);
     });
 
     it("should return a single chunk if array is smaller than chunk size", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       const arr = [1, 2, 3];
       const chunks = (scheduler as any).chunkArray(arr, 5);
       expect(chunks).toEqual([[1, 2, 3]]);
     });
 
     it("should return empty array for empty input", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       const chunks = (scheduler as any).chunkArray([], 5);
       expect(chunks).toEqual([]);
     });
 
     it("should handle chunk size of 1", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       const chunks = (scheduler as any).chunkArray([1, 2, 3], 1);
       expect(chunks).toEqual([[1], [2], [3]]);
     });
 
     it("should use the configured batch size of 40", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       const items = Array.from({ length: 95 }, (_, i) => i);
       const chunks = (scheduler as any).chunkArray(items, 40);
       expect(chunks).toHaveLength(3);
@@ -113,7 +122,7 @@ describe("Scheduler", () => {
 
   describe("sleep", () => {
     it("should resolve after the specified delay", () => {
-      scheduler = new Scheduler(service, 60000);
+      scheduler = new Scheduler(service, emailClient, "test@jacktrack.app", 60000);
       const sleepPromise = (scheduler as any).sleep(1000);
 
       vi.advanceTimersByTime(1000);

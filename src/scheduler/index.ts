@@ -1,4 +1,8 @@
 import type { TrackingService } from "../tracking/service.js";
+import type { IEmailClient } from "../email/client.js";
+import { newEventEmail } from "../email/templates.js";
+import { db, schema } from "../db/index.js";
+import { eq } from "drizzle-orm";
 
 /**
  * In-process scheduler that polls 17Track for active trackings.
@@ -9,12 +13,21 @@ export class Scheduler {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private readonly service: TrackingService;
+  private readonly emailClient: IEmailClient;
+  private readonly fromEmail: string;
   private readonly intervalMs: number;
   private readonly batchSize = 40;
   private readonly gapMs = 1000;
 
-  constructor(service: TrackingService, intervalMs: number = 900000) {
+  constructor(
+    service: TrackingService,
+    emailClient: IEmailClient,
+    fromEmail: string,
+    intervalMs: number = 900000,
+  ) {
     this.service = service;
+    this.emailClient = emailClient;
+    this.fromEmail = fromEmail;
     this.intervalMs = intervalMs;
   }
 
@@ -58,10 +71,36 @@ export class Scheduler {
     try {
       const newEvents = await this.service.checkTrackings();
 
-      // Process notifications for trackings with new events
+      // Send emails for trackings with new events
       for (const [trackingId, events] of newEvents) {
-        if (events.length > 0) {
-          console.log(`[Scheduler] Tracking #${trackingId}: ${events.length} new event(s)`);
+        if (events.length === 0) continue;
+
+        try {
+          // Get tracking details for email
+          const [tracking] = await db
+            .select({ trackingNumber: schema.trackings.trackingNumber, email: schema.trackings.email })
+            .from(schema.trackings)
+            .where(eq(schema.trackings.id, trackingId));
+
+          if (!tracking) {
+            console.warn(`[Scheduler] Tracking #${trackingId} not found in DB`);
+            continue;
+          }
+
+          const html = newEventEmail(tracking.trackingNumber, events);
+          const result = await this.emailClient.send({
+            to: tracking.email,
+            subject: "New tracking update",
+            html,
+          });
+
+          if (result.success) {
+            console.log(`[Scheduler] Email sent for #${trackingId}: ${events.length} event(s) to ${tracking.email}`);
+          } else {
+            console.error(`[Scheduler] Failed to send email for #${trackingId}: ${result.error}`);
+          }
+        } catch (err) {
+          console.error(`[Scheduler] Error processing notification for #${trackingId}:`, err);
         }
       }
     } catch (err) {
