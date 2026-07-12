@@ -1,0 +1,32 @@
+{
+  "name": "jacktrack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node --loader tsx src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.38.0",
+    "better-sqlite3": "^11.7.0",
+    "hono": "^4.6.0",
+    "@hono/zod-validator": "^0.4.0",
+    "@hono/node-server": "^1.13.0",
+    "resend": "^4.1.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.10.0",
+    "@types/better-sqlite3": "^7.6.12",
+    "vitest": "^2.1.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.19.0"
+  }
+}

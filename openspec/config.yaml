@@ -1,0 +1,55 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Project: jacktrack — Package tracking web application
+  Stack: not yet chosen (TBD via exploration)
+  Architecture: not yet determined
+  Frontend: minimal — tracking number + email input
+  Backend: periodic package monitoring service
+  Notifications: email alerts on new tracking events
+  Translation: Chinese -> English event translation
+  Database: PostgreSQL for persistence
+
+strict_tdd: false
+  # Set to true once the stack and test runner are chosen during exploration.
+
+persistence: hybrid
+
+testing:
+  runner: not detected
+  runner_command: ""
+  unit: false
+  integration: false
+  e2e: false
+  coverage: false
+  coverage_command: ""
+  linter: false
+  linter_command: ""
+  type_checker: false
+  type_checker_command: ""
+  formatter: false
+  formatter_command: ""
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
